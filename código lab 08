@@ -1,0 +1,161 @@
+#include <SD.h>  // Incluye la biblioteca SD.h para trabajar con tarjetas SD
+#define CS_PIN 5  // Define el número de pin CS_PIN al que se conecta la tarjeta SD
+File root;  // Declara un objeto File llamado root para representar el directorio raíz de la tarjeta SD
+
+enum MenuState {  // Define un enumerado MenuState para representar los estados del programa
+  MENU,         // Estado del menú principal
+  ENTER_IMAGE,  // Estado para ingresar una imagen personalizada
+  SAVE_IMAGE,   // Estado para guardar la imagen ingresada
+  DISPLAY_IMAGE  // Estado para mostrar una imagen guardada
+};
+
+MenuState currentState = MENU;  // Inicializa el estado actual en MENU
+
+void setup() {
+  // Inicialización
+  Serial.begin(115200);  // Inicializa la comunicación serial a 115200 baudios
+  Serial.println("Hello, ESP32!");  // Imprime un mensaje de bienvenida en la terminal
+  Serial.print("Initializing SD card... ");
+
+  if (!SD.begin(CS_PIN)) {  // Inicializa la tarjeta SD en el pin CS_PIN y verifica si la inicialización falla
+    Serial.println("Card initialization failed!");  // Imprime un mensaje de error si la inicialización de la tarjeta falla
+    while (true);  // Entra en un bucle infinito si la inicialización de la tarjeta falla
+  }
+
+  Serial.println("Initialization done.");  // Imprime un mensaje de éxito de inicialización
+
+  Serial.println("Files in the card:");
+  root = SD.open("/");  // Abre el directorio raíz de la tarjeta SD
+  printDirectory(root, 0);  // Llama a la función para imprimir la estructura de directorios y archivos
+  Serial.println("");
+}
+
+String imageData = "";  // Declara una cadena llamada imageData para almacenar temporalmente la imagen ingresada
+
+void loop() {
+  if (currentState == MENU) {
+    displayMenu();  // Muestra el menú principal
+  } else if (currentState == ENTER_IMAGE) {
+    enterImage();  // Permite al usuario ingresar una imagen personalizada
+  } else if (currentState == SAVE_IMAGE) {
+    saveImage();  // Guarda la imagen ingresada en un archivo
+  } else if (currentState == DISPLAY_IMAGE) {
+    displaySavedImage();  // Muestra una imagen guardada
+  }
+}
+
+void displayMenu() {
+  // Muestra el menú de opciones al usuario y procesa la entrada.
+  Serial.println();  // Línea en blanco para separar el menú de la imagen
+  Serial.println("Presione 1 para imagen de trifuerza");
+  Serial.println("Presione 2 para imagen de rupia");
+  Serial.println("Presione 3 para imagen de corazón");
+  Serial.println("Presione 4 para guardar su propia imagen");
+  Serial.println("Presione 5 para mostrar la imagen guardada");
+  char command = waitForCommand();  // Espera la entrada del usuario y obtiene el comando ingresado
+  if (command == '1') {
+    // Opción 1
+    displayImage("/lab.txt");  // Muestra la imagen del archivo "/lab.txt"
+  } else if (command == '2') {
+    // Opción 2
+    displayImage("/lab2.txt");  // Muestra la imagen del archivo "/lab2.txt"
+  } else if (command == '3') {
+    // Opción 3
+    displayImage("/lab3.txt");  // Muestra la imagen del archivo "/lab3.txt"
+  } else if (command == '4') {
+    // Opción 4
+    currentState = ENTER_IMAGE;  // Cambia al estado para ingresar una imagen personalizada
+    Serial.println("Opción 4: Por favor, ingrese su imagen ASCII. Presione Enter en una línea en blanco para finalizar:");
+  } else if (command == '5') {
+    // Opción 5
+    currentState = DISPLAY_IMAGE;  // Cambia al estado para mostrar una imagen guardada
+  }
+}
+
+char waitForCommand() {
+  // Espera la entrada del usuario y devuelve el comando ingresado
+  while (!Serial.available()) {
+    // Espera hasta que se presione una tecla
+  }
+  return Serial.read();  // Devuelve el comando ingresado por el usuario
+}
+
+void displayImage(const char* filename) {
+  // Abre y muestra el contenido del archivo especificado
+  File textFile = SD.open(filename);  // Abre el archivo especificado
+  if (textFile) {
+    Serial.print("Imagen: ");
+    while (textFile.available()) {
+      Serial.write(textFile.read());  // Muestra el contenido del archivo en la terminal
+    }
+    textFile.close();  // Cierra el archivo
+  } else {
+    Serial.println("Error al abrir el archivo.");  // Imprime un mensaje de error si no se puede abrir el archivo
+  }
+}
+
+void enterImage() {
+  // Permite al usuario ingresar una imagen línea por línea
+  if (Serial.available()) {
+    char data = Serial.read();  // Lee los datos ingresados por el usuario
+    Serial.write(data);  // Muestra lo que se está escribiendo en la terminal
+    imageData += data;  // Almacena los datos ingresados en la cadena imageData
+    if (data == '\n') {
+      // Si se ingresa una línea en blanco, la imagen se considera completa
+      currentState = SAVE_IMAGE;  // Cambia al estado para guardar la imagen
+      Serial.println("Imagen ingresada. Presione Enter para guardarla.");
+    }
+  }
+}
+
+void saveImage() {
+  // Guarda la imagen ingresada por el usuario en un archivo
+  if (Serial.available()) {
+    char data = Serial.read();  // Lee los datos ingresados por el usuario
+    Serial.write(data);  // Muestra lo que se está escribiendo en la terminal
+    imageData += data;  // Almacena los datos ingresados en la cadena imageData
+    if (data == '\n') {
+      // Si se ingresa una línea en blanco, finaliza la imagen y se guarda
+      File textFile = SD.open("/lab4.txt", FILE_WRITE);  // Abre o crea el archivo "lab4.txt" para escritura
+      if (textFile) {
+        textFile.print(imageData);  // Escribe la imagen en el archivo
+        textFile.close();  // Cierra el archivo
+        Serial.println("Imagen guardada en lab4.txt.");  // Imprime un mensaje de éxito
+      } else {
+        Serial.println("Error al abrir lab4.txt para escritura.");  // Imprime un mensaje de error si no se puede abrir el archivo
+      }
+      currentState = MENU;  // Vuelve al estado del menú después de guardar la imagen
+      imageData = "";  // Limpia los datos de la imagen
+    }
+  }
+}
+
+void displaySavedImage() {
+  // Muestra la imagen guardada en un archivo específico
+  displayImage("/lab4.txt");  // Muestra el contenido del archivo "/lab4.txt"
+  currentState = MENU;  // Vuelve al estado del menú después de mostrar la imagen
+}
+
+void printDirectory(File dir, int numTabs) {
+  // Lista y muestra la estructura de directorios y archivos en la tarjeta SD
+  while (true) {
+    File entry = dir.openNextFile();  // Abre el siguiente archivo o directorio en el directorio actual
+    if (!entry) {
+      // No hay más archivos
+      break;
+    }
+    for (uint8_t i = 0; i < numTabs; i++) {
+      Serial.print('\t');  // Agrega sangría para mostrar la estructura de directorios
+    }
+    Serial.print(entry.name());  // Muestra el nombre del archivo o directorio
+    if (entry.isDirectory()) {
+      Serial.println("/");  // Si es un directorio, muestra "/"
+      printDirectory(entry, numTabs + 1);  // Llama a la función para mostrar el contenido del directorio
+    } else {
+      // Los archivos tienen tamaños, los directorios no
+      Serial.print("\t\t");
+      Serial.println(entry.size(), DEC);  // Muestra el tamaño del archivo en bytes
+    }
+    entry.close();  // Cierra el archivo o directorio
+  }
+}
