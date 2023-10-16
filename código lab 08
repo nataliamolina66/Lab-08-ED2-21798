@@ -96,15 +96,16 @@ void displayImage(const char* filename) {
 
 void enterImage() {
   // Permite al usuario ingresar una imagen línea por línea
-  if (Serial.available()) {
+  while (Serial.available()) {
     char data = Serial.read();  // Lee los datos ingresados por el usuario
     Serial.write(data);  // Muestra lo que se está escribiendo en la terminal
-    imageData += data;  // Almacena los datos ingresados en la cadena imageData
-    if (data == '\n') {
-      // Si se ingresa una línea en blanco, la imagen se considera completa
+    if (data == '0') {
+      // Si se ingresa '0', la imagen se considera completa
       currentState = SAVE_IMAGE;  // Cambia al estado para guardar la imagen
-      Serial.println("Imagen ingresada. Presione Enter para guardarla.");
+      Serial.println("\nImagen ingresada. Presione Enter para guardarla.");
+      break;  // Sale del bucle
     }
+    imageData += data;  // Almacena los datos ingresados en la cadena imageData
   }
 }
 
